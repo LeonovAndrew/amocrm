@@ -73,10 +73,10 @@ if ($contactResp && isset($contactResp['body']['_embedded']['contacts'][0]['id']
         [
             'name' => "Название заявки",
             'price' => 0,
-            'pipeline_id' => 7988286, // Обязательно замените на ID вашего воронки
+            'pipeline_id' => 0000000, // Обязательно замените на ID вашего воронки
             'custom_fields_values' => [
                 [
-                    'field_id' => 745459, // Обязательно замените на ID вашего поля
+                    'field_id' => 0000000, // Обязательно замените на ID вашего поля
                     'values' => [
                         ['value' => "Текст"]
                     ]
