@@ -22,7 +22,7 @@
     *   **Client ID**: ID интеграции (из настроек AmoCRM).
     *   **Client Secret**: Секретный ключ интеграции (из настроек AmoCRM).
     *   **Authorization Code**: Код авторизации (генерируется в AmoCRM при создании интеграции).
-    *   **Redirect URI**: URI перенаправления, указанный в настройках интеграции (например, `https://your-bitrix-site.ru/`).
+    *   **Redirect URI**: URI перенаправления, указанный в настройках интеграции (например, `https://your-bitrix-site.ru/bitrix/admin/mwi_amocrm_auth.php`).
 
 ## Использование
 
