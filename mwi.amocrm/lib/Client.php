@@ -10,6 +10,7 @@ class Client
     protected $redirectUri;
     protected $accessToken;
     protected $refreshToken;
+    protected $accountDomain;
 
     public function __construct()
     {
@@ -27,12 +28,12 @@ class Client
             'redirect_uri'  => $this->redirectUri,
             'response_type' => 'code',
         ]);
-        return "https://www.amocrm.ru/oauth?{$params}";
+        return "https://amocrm.ru/oauth?{$params}";
     }
 
     public function exchangeCodeForToken(string $code)
     {
-        $url = "https://www.amocrm.ru/oauth2/access_token";
+        $url = "https://dveriprovans.amocrm.ru/oauth2/access_token";
         $post = [
             'client_id'     => $this->clientId,
             'client_secret' => $this->clientSecret,
@@ -47,6 +48,7 @@ class Client
             COption::SetOptionString("mwi.amocrm","token_expires", time() + intval($resp['expires_in']));
             $this->accessToken = $resp['access_token'];
             $this->refreshToken = $resp['refresh_token'];
+
             return true;
         }
         return $resp;
@@ -90,9 +92,11 @@ class Client
 
     protected function refreshAccessTokenIfNeeded(): void
     {
-        $expires = COption::GetOptionString("mwi.amocrm","token_expires",0);
+        // Приводим к int, чтобы безопасно делать вычитание
+        $expires = (int)COption::GetOptionString("mwi.amocrm","token_expires",0);
+
         if(time() > $expires - 60){
-            $url = "https://www.amocrm.ru/oauth2/access_token";
+            $url = "https://dveriprovans.amocrm.ru/oauth2/access_token";
             $post = [
                 'client_id'     => $this->clientId,
                 'client_secret' => $this->clientSecret,
@@ -100,7 +104,9 @@ class Client
                 'refresh_token' => $this->refreshToken,
                 'redirect_uri'  => $this->redirectUri,
             ];
+
             $resp = $this->httpPostJson($url, $post);
+
             if(isset($resp['access_token'])){
                 COption::SetOptionString("mwi.amocrm","access_token",$resp['access_token']);
                 COption::SetOptionString("mwi.amocrm","refresh_token",$resp['refresh_token']);
@@ -111,17 +117,56 @@ class Client
         }
     }
 
+
     public function createLead(array $leadData): array
     {
         $this->refreshAccessTokenIfNeeded();
         $domain = COption::GetOptionString("mwi.amocrm","account_domain","example.amocrm.ru");
         $url = "https://{$domain}/api/v4/leads";
-        $payload = [$leadData];
+        $payload = $leadData;
         $resp = $this->httpRequest('POST', $url, $payload);
         if($resp['code'] === 401){
             $this->refreshAccessTokenIfNeeded();
             $resp = $this->httpRequest('POST', $url, $payload);
         }
         return $resp;
+    }
+
+    /**
+     * Создать контакт
+     * @param array $contactData ['name'=>'Имя', 'first_name'=>'Имя', 'last_name'=>'Фамилия', 'email'=>'test@mail.ru', 'phone'=>'79991234567']
+     * @return array ['code'=>HTTP_CODE, 'body'=>RESPONSE]
+     */
+    public function createContact(array $contactData): array
+    {
+        $this->refreshAccessTokenIfNeeded();
+        $domain = COption::GetOptionString("mwi.amocrm","account_domain","example.amocrm.ru");
+        $url = "https://{$domain}/api/v4/contacts";
+
+        // amoCRM принимает массив контактов
+        $payload = $contactData;
+        $resp = $this->httpRequest('POST', $url, $payload);
+
+        // если токен просрочен, пробуем обновить
+        if($resp['code'] === 401){
+            $this->refreshAccessTokenIfNeeded();
+            $resp = $this->httpRequest('POST', $url, $payload);
+        }
+
+        return $resp;
+    }
+
+    /**
+     * Создать лид с привязкой к контактам
+     * @param array $leadData ['name'=>'Лид','pipeline_id'=>1234567,'status_id'=>'NEW']
+     * @param array $contactIds [id1,id2,...] — массив ID контактов для привязки
+     * @return array
+     */
+    public function createLeadWithContacts(array $leadData, array $contactIds = []): array
+    {
+        if(!empty($contactIds)){
+            $leadData['contacts'] = array_map(fn($id)=>['id'=>$id], $contactIds);
+        }
+        return $this->createLead($leadData);
     }
 }
